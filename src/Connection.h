@@ -15,20 +15,52 @@ class Connection;
 
 typedef shared_ptr<Connection> ConnPtr;
 
+/**
+ * Represents a socket-based connection.
+ */
 class Connection {
 
     int fd;
+    int buffer_size;
+    int status;
 
 public:
 
-    Connection(int fd);
+    Connection(int fd, int buffer_size=1024);
 
+    /**
+     * Sends the specified string message to the other party.
+     *
+     * @param msg message to send
+     */
     void send(string msg);
 
-    ssize_t recv(char *buffer, size_t buffer_size);
+    /**
+     * (Blocking) Receives a message from the other party.
+     *
+     * @param buffer buffer for incoming data
+     * @return size of received data
+     */
+    ssize_t recv(string &buffer);
 
+    /**
+     * Closes this connection.
+     *
+     * @return true if connection was closed successfully
+     */
     bool close();
 
+    int getBufferSize() const;
+
+    int getStatus() const;
+
+    /**
+     * Connects to the specified host and port and returns newly initialized Connection instance.
+     *
+     * @param host to connect to
+     * @param port to connect to
+     * @return pointer to Connection instance if successful, null otherwise
+     */
     static ConnPtr connect(string host, int port);
 
 };

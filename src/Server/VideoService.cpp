@@ -8,8 +8,18 @@
 #include <cstdio>
 #include <netinet/in.h>
 #include <thread>
+#include <sstream>
 
 using std::thread;
+using std::stringstream;
+
+////////////////////////////////////////
+///                                  ///
+///        == VideoService ==        ///
+///                                  ///
+////////////////////////////////////////
+
+/// * Public methods * ///
 
 int VideoService::start(int port, int backlog) {
     printf("[[starting service]]\n");
@@ -37,10 +47,73 @@ int VideoService::start(int port, int backlog) {
     return status;
 }
 
+UserPtr VideoService::authenticate(ConnPtr conn) {
+    string login;
+    conn->recv(login);
+    stringstream in(login);
+    string token;
+    string username;
+    string password;
+    for (int i = 0; std::getline(in, token, ' '); i++) {
+        if (i == 0 && token != MSG_LOGIN) {
+            conn->send(MSG_UNAUTHORIZED);
+            conn->close();
+            return nullptr;
+        }
+        if (i == 1) username = token;
+        if (i == 2) password = token;
+    }
+
+    // this is where the password would actually be checked
+
+    UserPtr user = getUser(username);
+    if (user == nullptr) {
+        user = std::make_shared<User>(username);
+        users.push_back(user);
+    }
+
+    conn->send(MSG_AUTHORIZED);
+
+    return user;
+}
+
+UserPtr VideoService::getUser(const string &username) const {
+    for (auto &user : users) {
+        if (user->getUsername() == username) {
+            return user;
+        }
+    }
+    return nullptr;
+}
+
+void VideoService::sendUserList(ConnPtr conn) {
+    string msg = string(MSG_LIST) + " ";
+    int len = users.size();
+    for (int i = 0; i < len; i++) {
+        msg += users[i]->getUsername();
+        if (i < len - 1) msg += ',';
+    }
+    printf("sending user list %s\n", msg.c_str());
+    conn->send(msg);
+}
+
+int VideoService::getStatus() const {
+    return status;
+}
+
+/// * Private methods * ///
+
 void VideoService::handleConnection(ConnPtr conn) {
-    char buffer[1024];
-    conn->recv(buffer, 1024);
-    printf("login = %s\n", buffer);
+    UserPtr user = authenticate(conn);
+    if (user == nullptr) return;
+    printf("user %s logged in", user->getUsername().c_str());
+    while (conn->getStatus() != STATUS_SHUTDOWN) {
+        string cmd;
+        conn->recv(cmd);
+        if (cmd == MSG_LIST) {
+            sendUserList(conn);
+        }
+    }
 }
 
 int VideoService::init(int port, int backlog) {
@@ -60,9 +133,6 @@ int VideoService::init(int port, int backlog) {
         fprintf(stderr, "failed to listen on socket\n");
         return STATUS_ERR_SOCKET;
     }
+    printf("Accepting new connections...");
     return STATUS_OK;
-}
-
-int VideoService::getStatus() const {
-    return status;
 }

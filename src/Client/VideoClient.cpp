@@ -3,12 +3,23 @@
 //
 
 #include <dlfcn.h>
+#include <sstream>
+#include <vector>
 #include "VideoClient.h"
 #include "../tuna.h"
-#include "../Connection.h"
 
 using std::function;
+using std::stringstream;
+using std::vector;
 using namespace std::placeholders;
+
+////////////////////////////////////////
+///                                  ///
+///        == Video Client ==        ///
+///                                  ///
+////////////////////////////////////////
+
+/// * Public methods * ///
 
 int VideoClient::start(int argc, char *argv[]) {
     printf("[[starting client]]\n");
@@ -24,15 +35,54 @@ int VideoClient::start(int argc, char *argv[]) {
     return status;
 }
 
+bool VideoClient::refreshUserList() {
+    conn->send(MSG_LIST);
+    string buffer;
+    conn->recv(buffer);
+
+    stringstream in(buffer);
+    string token;
+
+    std::getline(in, token, ' ');
+    printf("buffer = %s\n", buffer.c_str());
+    if (token != MSG_LIST) {
+        fprintf(stderr, "failed to refresh user list");
+        return false;
+    }
+
+    vector<string> userList;
+    while (std::getline(in, token, ',')) {
+        userList.push_back(token);
+    }
+    ui.setUserList(userList);
+
+    return true;
+}
+
 int VideoClient::getStatus() const {
     return status;
 }
 
+/// * Private methods * ///
+
 void VideoClient::handleLogin(string username, string password) {
     printf("username = %s\n", username.c_str());
     printf("password = %s\n", password.c_str());
-    ui.postError("Test");
-    ConnPtr conn = Connection::connect(host, port);
+    conn = Connection::connect(host, port);
     if (conn == nullptr) return;
-    conn->send("LOGIN " + username + " " + password);
+    char msg[1024];
+    sprintf(msg, "%s %s %s", MSG_LOGIN, username.c_str(), password.c_str());
+    conn->send(msg);
+    string res;
+    conn->recv(res);
+    if (res == MSG_UNAUTHORIZED) {
+        ui.postError("Unauthorized");
+        return;
+    } else if (res == MSG_AUTHORIZED) {
+        ui.postError("Success");
+        refreshUserList();
+        ui.showHome();
+    } else {
+        ui.postError("An unexpected error occurred.");
+    }
 }
