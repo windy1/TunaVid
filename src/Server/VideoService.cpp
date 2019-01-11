@@ -70,6 +70,7 @@ UserPtr VideoService::authenticate(ConnPtr conn) {
 
     UserPtr user = getUser(username);
     if (user == nullptr) {
+        // user is logging on
         user = std::make_shared<User>(*this, username);
         users.push_back(user);
     }

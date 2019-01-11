@@ -19,6 +19,8 @@ using namespace std::placeholders;
 ///                                  ///
 ////////////////////////////////////////
 
+VideoClient::VideoClient() : messageListener(MessageListener(*this)) {}
+
 /// * Public methods * ///
 
 int VideoClient::start(int argc, char *argv[]) {
@@ -35,31 +37,48 @@ int VideoClient::start(int argc, char *argv[]) {
     ui.start(argc, argv);
 
     shutdown();
+    messageListener.stop();
 
     return status;
 }
 
-bool VideoClient::refreshUserList() {
-    conn->send(Message::List);
-    string buffer;
-    conn->recv(buffer);
+//bool VideoClient::refreshUserList() {
+//    conn->send(Message::List);
+//    string buffer;
+//    conn->recv(buffer);
+//
+//    stringstream in(buffer);
+//    string token;
+//
+//    std::getline(in, token, ' ');
+//    if (token != Message::List) {
+//        fprintf(stderr, "failed to refresh user list");
+//        return false;
+//    }
+//
+//    vector<string> userList;
+//    while (std::getline(in, token, ',')) {
+//        userList.push_back(token);
+//    }
+//    ui.setUserList(userList);
+//
+//    return true;
+//}
 
-    stringstream in(buffer);
-    string token;
+ConnPtr VideoClient::getConnection() const {
+    return conn;
+}
 
-    std::getline(in, token, ' ');
-    if (token != Message::List) {
-        fprintf(stderr, "failed to refresh user list");
-        return false;
-    }
+Ui::TunaVid& VideoClient::getUi() const {
+    return (Ui::TunaVid&) ui;
+}
 
-    vector<string> userList;
-    while (std::getline(in, token, ',')) {
-        userList.push_back(token);
-    }
-    ui.setUserList(userList);
+const string& VideoClient::getHost() const {
+    return host;
+}
 
-    return true;
+int VideoClient::getPort() const {
+    return port;
 }
 
 int VideoClient::getStatus() const {
@@ -71,33 +90,33 @@ int VideoClient::getStatus() const {
 void VideoClient::handleLogin(string username, string password) {
     conn = Connection::connect(host, port);
     if (conn == nullptr) return;
-
+    messageListener.start();
     string msg = Message::Login + " " + username + " " + password;
     conn->send(msg);
-    string res;
-    conn->recv(res);
-
-    if (res == Message::Unauthorized) {
-        ui.postError("Unauthorized");
-        return;
-    } else if (res == Message::Authorized) {
-        ui.postError("Success");
-        refreshUserList();
-        ui.showHome();
-    } else {
-        ui.postError("An unexpected error occurred.");
-    }
+//    string res;
+//    conn->recv(res);
+//
+//    if (res == Message::Unauthorized) {
+//        ui.postError("Unauthorized");
+//        return;
+//    } else if (res == Message::Authorized) {
+//        ui.postError("Success");
+//        conn->send(Message::List);
+//        ui.showHome();
+//    } else {
+//        ui.postError("An unexpected error occurred.");
+//    }
 }
 
 void VideoClient::shutdown() {
     printf("shutting down...\n");
     conn->send(Message::Disconnect);
-    string res;
-    conn->recv(res);
-    if (res == Message::Goodbye) {
-        conn->close();
-    } else {
-        fprintf(stderr, "failed to signoff gracefully");
-    }
-    status = Status::Closed;
+//    string res;
+//    conn->recv(res);
+//    if (res == Message::Goodbye) {
+//        conn->close();
+//    } else {
+//        fprintf(stderr, "failed to signoff gracefully");
+//    }
+//    status = Status::Closed;
 }
