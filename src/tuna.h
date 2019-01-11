@@ -5,28 +5,30 @@
 #ifndef TUNAVID_TUNA_H
 #define TUNAVID_TUNA_H
 
-///////////////////////////////////////
-///                                 ///
-///        == Status Codes ==       ///
-///                                 ///
-///////////////////////////////////////
+#include <string>
 
-#define STATUS_OK           200
-#define STATUS_SHUTDOWN     201
-#define STATUS_ERR_SOCKET   400
-#define STATUS_INVALID_ARGS 401
-#define STATUS_ERR_LOGIN    402
+using std::string;
 
-///////////////////////////////////////
-///                                 ///
-///     == Protocol messages ==     ///
-///                                 ///
-///////////////////////////////////////
+struct Status {
 
-#define MSG_LOGIN           "LOGIN"
-#define MSG_UNAUTHORIZED    "UNAUTHORIZED"
-#define MSG_AUTHORIZED      "AUTHORIZED"
-#define MSG_LIST            "LIST"
-#define MSG_OK              "OK"
+    static const int Ok;
+    static const int Shutdown;
+    static const int Closed;
+    static const int SocketErr;
+    static const int InvalidArgs;
+    static const int LoginErr;
+
+};
+
+struct Message {
+
+    static const string Login;
+    static const string Unauthorized;
+    static const string Authorized;
+    static const string List;
+    static const string Disconnect;
+    static const string Goodbye;
+
+};
 
 #endif //TUNAVID_TUNA_H

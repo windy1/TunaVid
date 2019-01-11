@@ -25,6 +25,9 @@ class VideoClient {
     /// callback method invoked when the login button is clicked
     void handleLogin(string username, string password);
 
+    // handles shutdown after the UI has been closed
+    void shutdown();
+
 public:
 
     /**
@@ -36,6 +39,11 @@ public:
      */
     int start(int argc, char *argv[]);
 
+    /**
+     * Requests the user list from the server and refreshes the frontend.
+     *
+     * @return true if successful
+     */
     bool refreshUserList();
 
     /**

@@ -11,6 +11,6 @@ add_executable(TunaVid
         src/tuna.h
         src/Server/VideoService.cpp src/Server/VideoService.h
         src/Client/VideoClient.cpp src/Client/VideoClient.h
-        src/Connection.cpp src/Connection.h src/Server/User.cpp src/Server/User.h)
+        src/Connection.cpp src/Connection.h src/Server/User.cpp src/Server/User.h src/tuna.cpp)
 
 target_link_libraries(TunaVid TunaVid-ui)

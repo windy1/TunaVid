@@ -58,7 +58,28 @@ public:
      */
     UserPtr getUser(const string& username) const;
 
+    /**
+     * Returns all currently opened connection.
+     *
+     * @return open connections
+     */
+    const vector<ConnPtr>& getConnections() const;
+
+    /**
+     * Sends the user list to the specified Connection.
+     *
+     * @param conn connection to send user list to
+     */
     void sendUserList(ConnPtr conn);
+
+    /**
+     * Disconnects the specified connection. If this is the last connection
+     * for the associated user, the user will be removed from the user list.
+     *
+     * @param conn connection to disconnect
+     * @param close whether the socket should be closed or just shutdown
+     */
+    void disconnect(ConnPtr conn, bool close = false);
 
     /**
      * Returns the current service status code.

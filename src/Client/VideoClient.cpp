@@ -25,18 +25,22 @@ int VideoClient::start(int argc, char *argv[]) {
     printf("[[starting client]]\n");
     if (argc != 4) {
         fprintf(stderr, "missing host and port arguments");
-        return (status = STATUS_INVALID_ARGS);
+        return (status = Status::InvalidArgs);
     }
     host = argv[2];
     port = std::stoi(argv[3]);
-    status = STATUS_OK;
+    status = Status::Ok;
+
     ui.setLoginHandler(std::bind(&VideoClient::handleLogin, this, _1, _2));
     ui.start(argc, argv);
+
+    shutdown();
+
     return status;
 }
 
 bool VideoClient::refreshUserList() {
-    conn->send(MSG_LIST);
+    conn->send(Message::List);
     string buffer;
     conn->recv(buffer);
 
@@ -44,8 +48,7 @@ bool VideoClient::refreshUserList() {
     string token;
 
     std::getline(in, token, ' ');
-    printf("buffer = %s\n", buffer.c_str());
-    if (token != MSG_LIST) {
+    if (token != Message::List) {
         fprintf(stderr, "failed to refresh user list");
         return false;
     }
@@ -66,23 +69,35 @@ int VideoClient::getStatus() const {
 /// * Private methods * ///
 
 void VideoClient::handleLogin(string username, string password) {
-    printf("username = %s\n", username.c_str());
-    printf("password = %s\n", password.c_str());
     conn = Connection::connect(host, port);
     if (conn == nullptr) return;
-    char msg[1024];
-    sprintf(msg, "%s %s %s", MSG_LOGIN, username.c_str(), password.c_str());
+
+    string msg = Message::Login + " " + username + " " + password;
     conn->send(msg);
     string res;
     conn->recv(res);
-    if (res == MSG_UNAUTHORIZED) {
+
+    if (res == Message::Unauthorized) {
         ui.postError("Unauthorized");
         return;
-    } else if (res == MSG_AUTHORIZED) {
+    } else if (res == Message::Authorized) {
         ui.postError("Success");
         refreshUserList();
         ui.showHome();
     } else {
         ui.postError("An unexpected error occurred.");
     }
+}
+
+void VideoClient::shutdown() {
+    printf("shutting down...\n");
+    conn->send(Message::Disconnect);
+    string res;
+    conn->recv(res);
+    if (res == Message::Goodbye) {
+        conn->close();
+    } else {
+        fprintf(stderr, "failed to signoff gracefully");
+    }
+    status = Status::Closed;
 }

@@ -7,13 +7,17 @@
 
 #include <string>
 #include <memory>
+#include <thread>
 
 using std::string;
 using std::shared_ptr;
+using std::thread;
 
+class User;
 class Connection;
 
 typedef shared_ptr<Connection> ConnPtr;
+typedef std::shared_ptr<User> UserPtr;
 
 /**
  * Represents a socket-based connection.
@@ -23,6 +27,8 @@ class Connection {
     int fd;
     int buffer_size;
     int status;
+    UserPtr user;
+    shared_ptr<thread> th;
 
 public:
 
@@ -50,8 +56,53 @@ public:
      */
     bool close();
 
+    /**
+     * Shuts down all incoming and outgoing messages on this connection.
+     *
+     * @return true if successful
+     */
+    bool shutdown();
+
+    /**
+     * Sets the thread this connection is associated with.
+     *
+     * @param th thread
+     */
+    void setThread(shared_ptr<thread> th);
+
+    /**
+     * Returns the thread this connection is associated with.
+     *
+     * @return connection thread
+     */
+    shared_ptr<thread> getThread() const;
+
+    /**
+     * Sets the User this Connection is associated with
+     *
+     * @param user to set
+     */
+    void setUser(UserPtr user);
+
+    /**
+     * Returns the User this Connection is associated with.
+     *
+     * @return user
+     */
+    UserPtr getUser() const;
+
+    /**
+     * Returns the buffer size of this connection.
+     *
+     * @return buffer size
+     */
     int getBufferSize() const;
 
+    /**
+     * Returns the current status code for this connection.
+     *
+     * @return current status code
+     */
     int getStatus() const;
 
     /**
