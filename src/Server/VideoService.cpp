@@ -9,6 +9,8 @@
 #include <netinet/in.h>
 #include <thread>
 #include <sstream>
+#include <future>
+#include <pthread.h>
 
 using std::thread;
 using std::stringstream;
@@ -22,6 +24,8 @@ using std::stringstream;
 /// * Public methods * ///
 
 int VideoService::start(int port, int backlog) {
+    pthread_setname_np("Main");
+
     printf("[[starting service]]\n");
     printf("port = %d\n", port);
 
@@ -43,6 +47,7 @@ int VideoService::start(int port, int backlog) {
         ConnPtr conn = std::make_shared<Connection>(cli_socket);
         connections.push_back(conn);
         shared_ptr<thread> th = std::make_shared<thread>(&VideoService::handleConnection, this, conn);
+        th->detach();
         conn->setThread(th);
     }
 
@@ -71,24 +76,14 @@ UserPtr VideoService::authenticate(ConnPtr conn) {
     UserPtr user = getUser(username);
     if (user == nullptr) {
         // user is logging on
-        user = std::make_shared<User>(*this, username);
+        user = std::make_shared<User>(this, username);
         users.push_back(user);
+        sendAll(Message::Join + " " + username);
     }
 
     conn->send(Message::Authorized);
 
     return user;
-}
-
-UserPtr VideoService::getUser(const string &username) const {
-    auto it = std::find_if(users.begin(), users.end(), [&](const UserPtr &user) {
-        return user->getUsername() == username;
-    });
-    return it != users.end() ? *it : nullptr;
-}
-
-const vector<ConnPtr>& VideoService::getConnections() const {
-    return connections;
 }
 
 void VideoService::sendUserList(ConnPtr conn) {
@@ -103,10 +98,10 @@ void VideoService::sendUserList(ConnPtr conn) {
 
 void VideoService::disconnect(ConnPtr conn, bool close) {
     UserPtr user = conn->getUser();
-    if (user != nullptr) {
-        if (user->getConnections().size() == 1) {
-            users.erase(std::remove(users.begin(), users.end(), user), users.end());
-        }
+    if (user != nullptr && user->getConnections()->size() == 1) {
+        // user logging off
+        users.erase(std::remove(users.begin(), users.end(), user), users.end());
+        sendAll(Message::Leave + " " + user->getUsername());
     }
 
     conn->send(Message::Goodbye);
@@ -116,8 +111,27 @@ void VideoService::disconnect(ConnPtr conn, bool close) {
     }
 }
 
-int VideoService::getStatus() const {
-    return status;
+void VideoService::sendAll(const string &message) {
+    std::async(&VideoService::_sendAll, this, message);
+}
+
+void VideoService::startCall(ConnPtr sender, UserPtr receiver) {
+    if (receiver == nullptr) {
+        sender->send(Message::CallInvalid);
+    } else {
+        CallSessionPtr call = std::make_shared<CallSession>(sender, receiver);
+        call_sessions.push_back(call);
+        sender->send(Message::CallWaiting + " " + std::to_string(call->getId()));
+    }
+}
+
+void VideoService::acceptCall(int callId, ConnPtr conn) {
+    CallSessionPtr call = getCall(callId);
+    if (call == nullptr || call->getReceiver() != conn->getUser()) {
+        conn->send(Message::CallInvalid);
+        return;
+    }
+    call->accepted(conn);
 }
 
 /// * Private methods * ///
@@ -130,20 +144,55 @@ void VideoService::handleConnection(ConnPtr conn) {
         return;
     }
 
+    pthread_setname_np(("Connection-" + user->getUsername()).c_str());
+
     conn->setUser(user);
+    int callId = -1;
+    bool frameIncoming = false;
+    string message;
+    stringstream in;
+    string header;
 
     while (conn->getStatus() != Status::Shutdown) {
-        string cmd;
-        conn->recv(cmd);
-        if (cmd == Message::List) {
+        if (frameIncoming) {
+            handleFrame(conn, callId);
+            frameIncoming = false;
+            continue;
+        }
+
+        conn->recv(message);
+        in = stringstream(message);
+        in >> header;
+
+        if (header == Message::List) {
             sendUserList(conn);
-        } else if (cmd == Message::Disconnect) {
+        } else if (header == Message::Call) {
+            string receiver_name;
+            in >> receiver_name;
+            UserPtr receiver = getUser(receiver_name);
+            startCall(conn, receiver);
+        } else if (header == Message::CallAccept) {
+            in >> callId;
+            acceptCall(callId, conn);
+        } else if (header == Message::Frame) {
+            in >> callId;
+            frameIncoming = true;
+        } else if (header == Message::Disconnect) {
             disconnect(conn);
         }
     }
 
     conn->close();
     connections.erase(std::remove(connections.begin(), connections.end(), conn), connections.end());
+}
+
+void VideoService::handleFrame(ConnPtr sender, int callId) {
+    CallSessionPtr call = getCall(callId);
+    if (call == nullptr) {
+        sender->send(Message::CallInvalid);
+        return;
+    }
+    call->readFrame(sender);
 }
 
 int VideoService::init(int port, int backlog) {
@@ -165,4 +214,34 @@ int VideoService::init(int port, int backlog) {
     }
     printf("Accepting new connections...\n");
     return Status::Ok;
+}
+
+void VideoService::_sendAll(const string &message) {
+    for (auto &conn : connections) {
+        conn->send(message);
+    }
+}
+
+/// * Getters * ///
+
+UserPtr VideoService::getUser(const string &username) const {
+    auto it = std::find_if(users.begin(), users.end(), [&](const UserPtr &user) {
+        return user->getUsername() == username;
+    });
+    return it != users.end() ? *it : nullptr;
+}
+
+CallSessionPtr VideoService::getCall(int callId) const {
+    auto it = std::find_if(call_sessions.begin(), call_sessions.end(), [&](const CallSessionPtr &call) {
+        return call->getId() == callId;
+    });
+    return it != call_sessions.end() ? *it : nullptr;
+}
+
+const vector<ConnPtr>& VideoService::getConnections() const {
+    return connections;
+}
+
+int VideoService::getStatus() const {
+    return status;
 }

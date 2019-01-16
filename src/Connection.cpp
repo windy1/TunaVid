@@ -9,6 +9,7 @@
 #include <vector>
 #include "Connection.h"
 #include "tuna.h"
+#include "User.h"
 
 using std::vector;
 
@@ -18,26 +19,35 @@ using std::vector;
 ///                                  ///
 ////////////////////////////////////////
 
-Connection::Connection(int fd, int buffer_size) : fd(fd), buffer_size(buffer_size), status(Status::Ok) {}
+Connection::Connection(int fd) : fd(fd), status(Status::Ok), remoteTag("remote") {}
 
 /// * Public methods * ///
 
-void Connection::send(string msg) {
-    size_t len = msg.size();
-    ::send(fd, &len, sizeof(size_t), 0);
-    ::send(fd, msg.c_str(), msg.size(), 0);
-    printf("[local] %s\n", msg.c_str());
+void Connection::send(const string &msg) {
+    write_mutex.lock();
+    _send(msg);
+    write_mutex.unlock();
+}
+
+void Connection::sendMulti(const vector<string> &data) {
+    write_mutex.lock();
+    for (auto &str : data) _send(str);
+    write_mutex.unlock();
 }
 
 ssize_t Connection::recv(string &buffer) {
+    read_mutex.lock();
     size_t len;
-    ::recv(fd, &len, sizeof(size_t), 0);
+    recvFull(&len, sizeof(size_t));
     vector<char> buff;
     buff.resize(len, 0x00);
-    ssize_t size = ::recv(fd, &buff[0], len, 0);
+    recvFull(&buff[0], len);
     buffer.assign(&buff[0], buff.size());
-    printf("[remote] %s\n", buffer.c_str());
-    return size;
+    if (!buffer.empty()) {
+        printf("[%s] %s\n", remoteTag.c_str(), buffer.c_str());
+    }
+    read_mutex.unlock();
+    return len;
 }
 
 bool Connection::close() {
@@ -68,23 +78,41 @@ shared_ptr<thread> Connection::getThread() const {
 
 void Connection::setUser(UserPtr user) {
     this->user = user;
+    this->remoteTag = user->getUsername();
 }
 
 UserPtr Connection::getUser() const {
     return user;
 }
 
-int Connection::getBufferSize() const {
-    return buffer_size;
-}
-
 int Connection::getStatus() const {
     return status;
 }
 
+/// * Private methods * ///
+
+void Connection::_send(const string &msg) {
+    size_t len = msg.size();
+    ::send(fd, &len, sizeof(size_t), 0);
+    ::send(fd, msg.c_str(), msg.size(), 0);
+    printf("[local => %s] %s\n", remoteTag.c_str(), msg.c_str());
+}
+
+void Connection::recvFull(void *buffer, size_t len) {
+    size_t bytes_left = len;
+    while (bytes_left > 0) {
+        ssize_t n = ::recv(fd, buffer, len, 0);
+        if (n < 0) {
+            fprintf(stderr, "error: Connection::recvFull\n");
+            continue;
+        }
+        bytes_left -= n;
+    }
+}
+
 /// * Static methods * ///
 
-ConnPtr Connection::connect(string host, int port) {
+ConnPtr Connection::connect(string &host, int port) {
     sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);

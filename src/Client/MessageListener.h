@@ -22,7 +22,7 @@ using std::string;
 class MessageListener {
 
     VideoClient &client;
-    unique_ptr<thread> th;
+    thread th;
     bool running;
 
     void _start();

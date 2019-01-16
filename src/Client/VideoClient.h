@@ -9,6 +9,7 @@
 #include "TunaVid.h"
 #include "../Connection.h"
 #include "MessageListener.h"
+#include "../User.h"
 
 using std::string;
 
@@ -22,11 +23,17 @@ class VideoClient {
     int status;
     Ui::TunaVid ui;
     ConnPtr conn;
-    MessageListener messageListener;
-
+    MessageListener message_listener;
+    UserPtr user;
+    int activeCallId;
+    int pendingCallId;
 
     /// callback method invoked when the login button is clicked
-    void handleLogin(string username, string password);
+    void handleLogin(const string &username, const string &password);
+
+    void handleCall(const string &receiver, CallAction action);
+
+    void handleFrame(const string &data);
 
     // handles shutdown after the UI has been closed
     void shutdown();
@@ -44,16 +51,21 @@ public:
      */
     int start(int argc, char *argv[]);
 
-//    /**
-//     * Requests the user list from the server and refreshes the frontend.
-//     *
-//     * @return true if successful
-//     */
-//    bool refreshUserList();
+    void setUser(UserPtr user);
+
+    void setActiveCallId(int callId);
+
+    void setPendingCallId(int callId);
 
     ConnPtr getConnection() const;
 
-    Ui::TunaVid& getUi() const;
+    Ui::TunaVid& getUi();
+
+    UserPtr getUser() const;
+
+    int getActiveCallId() const;
+
+    int getPendingCallId() const;
 
     const string& getHost() const;
 

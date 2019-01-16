@@ -7,7 +7,8 @@
 
 #include "../tuna.h"
 #include "../Connection.h"
-#include "User.h"
+#include "../User.h"
+#include "CallSession.h"
 #include <vector>
 
 using std::vector;
@@ -24,12 +25,17 @@ class VideoService {
 
     vector<ConnPtr> connections;
     vector<UserPtr> users;
+    vector<CallSessionPtr> call_sessions;
 
     /// handles / processes new connection to the server
     void handleConnection(ConnPtr conn);
 
+    void handleFrame(ConnPtr sender, int callId);
+
     /// performs initialization logic during startup
     int init(int port, int backlog);
+
+    void _sendAll(const string &message);
 
 public:
 
@@ -51,21 +57,6 @@ public:
     UserPtr authenticate(ConnPtr conn);
 
     /**
-     * Returns the User with the specified username. If the user is not online, null is returned.
-     *
-     * @param username to lookup
-     * @return User if online, null otherwise
-     */
-    UserPtr getUser(const string& username) const;
-
-    /**
-     * Returns all currently opened connection.
-     *
-     * @return open connections
-     */
-    const vector<ConnPtr>& getConnections() const;
-
-    /**
      * Sends the user list to the specified Connection.
      *
      * @param conn connection to send user list to
@@ -80,6 +71,29 @@ public:
      * @param close whether the socket should be closed or just shutdown
      */
     void disconnect(ConnPtr conn, bool close = false);
+
+    void sendAll(const string &message);
+
+    void startCall(ConnPtr sender, UserPtr receiver);
+
+    void acceptCall(int callId, ConnPtr conn);
+
+    /**
+     * Returns all currently opened connection.
+     *
+     * @return open connections
+     */
+    const vector<ConnPtr>& getConnections() const;
+
+    /**
+     * Returns the User with the specified username. If the user is not online, null is returned.
+     *
+     * @param username to lookup
+     * @return User if online, null otherwise
+     */
+    UserPtr getUser(const string& username) const;
+
+    CallSessionPtr getCall(int callId) const;
 
     /**
      * Returns the current service status code.

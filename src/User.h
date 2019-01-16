@@ -8,7 +8,7 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include "../Connection.h"
+#include "Connection.h"
 
 using std::vector;
 using std::string;
@@ -23,13 +23,13 @@ typedef std::shared_ptr<User> UserPtr;
  */
 class User {
 
-    VideoService &service;
+    VideoService *service;
     string username;
     mutable vector<ConnPtr> connections;
 
 public:
 
-    explicit User(VideoService &service, const string &username);
+    explicit User(VideoService *service, const string &username);
 
     /**
      * Returns this user's username.
@@ -43,7 +43,7 @@ public:
      *
      * @return connections of user
      */
-    const vector<ConnPtr>& getConnections() const;
+    const vector<ConnPtr>* getConnections() const;
 
 };
 

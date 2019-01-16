@@ -16,7 +16,6 @@ struct Status {
     static const int Closed;
     static const int SocketErr;
     static const int InvalidArgs;
-    static const int LoginErr;
 
 };
 
@@ -27,6 +26,16 @@ struct Message {
     static const string Authorized;
     static const string List;
     static const string Disconnect;
+    static const string Join;
+    static const string Leave;
+    static const string Frame;
+    static const string Call;
+    static const string CallWaiting;
+    static const string CallIncoming;
+    static const string CallAccept;
+    static const string CallOpen;
+    static const string CallReject;
+    static const string CallInvalid;
     static const string Goodbye;
 
 };

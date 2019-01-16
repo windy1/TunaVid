@@ -8,10 +8,14 @@
 #include <string>
 #include <memory>
 #include <thread>
+#include <mutex>
+#include <vector>
 
 using std::string;
 using std::shared_ptr;
 using std::thread;
+using std::mutex;
+using std::vector;
 
 class User;
 class Connection;
@@ -25,21 +29,29 @@ typedef std::shared_ptr<User> UserPtr;
 class Connection {
 
     int fd;
-    int buffer_size;
     int status;
     UserPtr user;
+    string remoteTag;
     shared_ptr<thread> th;
+    mutex write_mutex;
+    mutex read_mutex;
+
+    void _send(const string &msg);
+
+    void recvFull(void *buffer, size_t len);
 
 public:
 
-    Connection(int fd, int buffer_size=1024);
+    Connection(int fd);
 
     /**
      * Sends the specified string message to the other party.
      *
      * @param msg message to send
      */
-    void send(string msg);
+    void send(const string &msg);
+
+    void sendMulti(const vector<string> &data);
 
     /**
      * (Blocking) Receives a message from the other party.
@@ -92,13 +104,6 @@ public:
     UserPtr getUser() const;
 
     /**
-     * Returns the buffer size of this connection.
-     *
-     * @return buffer size
-     */
-    int getBufferSize() const;
-
-    /**
      * Returns the current status code for this connection.
      *
      * @return current status code
@@ -112,7 +117,7 @@ public:
      * @param port to connect to
      * @return pointer to Connection instance if successful, null otherwise
      */
-    static ConnPtr connect(string host, int port);
+    static ConnPtr connect(string &host, int port);
 
 };
 
