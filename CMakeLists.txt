@@ -14,6 +14,6 @@ add_executable(TunaVid
         src/Connection.cpp src/Connection.h
         src/User.cpp src/User.h
         src/tuna.cpp
-        src/Client/MessageListener.cpp src/Client/MessageListener.h src/Server/CallSession.cpp src/Server/CallSession.h)
+        src/Client/MessageListener.cpp src/Client/MessageListener.h src/Server/CallSession.cpp src/Server/CallSession.h src/Server/ServerMonitor.cpp src/Server/ServerMonitor.h)
 
 target_link_libraries(TunaVid TunaVid-ui)

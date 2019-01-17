@@ -21,6 +21,8 @@ using std::stringstream;
 ///                                  ///
 ////////////////////////////////////////
 
+VideoService::VideoService() : monitor(ServerMonitor(this)) {}
+
 /// * Public methods * ///
 
 int VideoService::start(int port, int backlog) {
@@ -33,23 +35,9 @@ int VideoService::start(int port, int backlog) {
         return status;
     }
 
-    sockaddr_in cli_addr{};
-    int addr_len = sizeof(cli_addr);
-    int cli_socket;
-
-    // start accepting new connections
-    running = true;
-    while (running) {
-        cli_socket = accept(socket_fd, (sockaddr *) &cli_addr, (socklen_t *) &addr_len);
-        if (cli_socket < 0) {
-            continue;
-        }
-        ConnPtr conn = std::make_shared<Connection>(cli_socket);
-        connections.push_back(conn);
-        shared_ptr<thread> th = std::make_shared<thread>(&VideoService::handleConnection, this, conn);
-        th->detach();
-        conn->setThread(th);
-    }
+    listen_thread = thread(&VideoService::startListening, this);
+    monitor.start();
+    listen_thread.join();
 
     return status;
 }
@@ -216,6 +204,25 @@ int VideoService::init(int port, int backlog) {
     return Status::Ok;
 }
 
+void VideoService::startListening() {
+    sockaddr_in cli_addr{};
+    int addr_len = sizeof(cli_addr);
+    int cli_socket;
+    // start accepting new connections
+    is_running = true;
+    while (is_running) {
+        cli_socket = accept(socket_fd, (sockaddr *) &cli_addr, (socklen_t *) &addr_len);
+        if (cli_socket < 0) {
+            continue;
+        }
+        ConnPtr conn = std::make_shared<Connection>(cli_socket);
+        connections.push_back(conn);
+        shared_ptr<thread> th = std::make_shared<thread>(&VideoService::handleConnection, this, conn);
+        th->detach();
+        conn->setThread(th);
+    }
+}
+
 void VideoService::_sendAll(const string &message) {
     for (auto &conn : connections) {
         conn->send(message);
@@ -238,8 +245,16 @@ CallSessionPtr VideoService::getCall(int callId) const {
     return it != call_sessions.end() ? *it : nullptr;
 }
 
+bool VideoService::isRunning() const {
+    return is_running;
+}
+
 const vector<ConnPtr>& VideoService::getConnections() const {
     return connections;
+}
+
+const vector<CallSessionPtr>& VideoService::getCallSessions() const {
+    return call_sessions;
 }
 
 int VideoService::getStatus() const {

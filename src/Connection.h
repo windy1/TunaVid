@@ -28,6 +28,9 @@ typedef std::shared_ptr<User> UserPtr;
  */
 class Connection {
 
+    static int LastId;
+
+    int id;
     int fd;
     int status;
     UserPtr user;
@@ -109,6 +112,8 @@ public:
      * @return current status code
      */
     int getStatus() const;
+
+    int getId() const;
 
     /**
      * Connects to the specified host and port and returns newly initialized Connection instance.

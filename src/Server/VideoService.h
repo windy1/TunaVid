@@ -9,9 +9,12 @@
 #include "../Connection.h"
 #include "../User.h"
 #include "CallSession.h"
+#include "ServerMonitor.h"
 #include <vector>
+#include <thread>
 
 using std::vector;
+using std::thread;
 
 /**
  * Main class for video-streaming service. This service acts as an intermediary station for data exchanged between
@@ -21,11 +24,14 @@ class VideoService {
 
     int status;
     int socket_fd;
-    int running;
+    bool is_running;
+    thread listen_thread;
 
     vector<ConnPtr> connections;
     vector<UserPtr> users;
     vector<CallSessionPtr> call_sessions;
+
+    ServerMonitor monitor;
 
     /// handles / processes new connection to the server
     void handleConnection(ConnPtr conn);
@@ -35,9 +41,13 @@ class VideoService {
     /// performs initialization logic during startup
     int init(int port, int backlog);
 
+    void startListening();
+
     void _sendAll(const string &message);
 
 public:
+
+    VideoService();
 
     /**
      * Starts the server on the specified port with the specified amount of backlog connections.
@@ -85,6 +95,8 @@ public:
      */
     const vector<ConnPtr>& getConnections() const;
 
+    const vector<CallSessionPtr>& getCallSessions() const;
+
     /**
      * Returns the User with the specified username. If the user is not online, null is returned.
      *
@@ -94,6 +106,8 @@ public:
     UserPtr getUser(const string& username) const;
 
     CallSessionPtr getCall(int callId) const;
+
+    bool isRunning() const;
 
     /**
      * Returns the current service status code.

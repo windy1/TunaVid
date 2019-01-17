@@ -19,7 +19,9 @@ using std::vector;
 ///                                  ///
 ////////////////////////////////////////
 
-Connection::Connection(int fd) : fd(fd), status(Status::Ok), remoteTag("remote") {}
+int Connection::LastId = -1;
+
+Connection::Connection(int fd) : fd(fd), status(Status::Ok), remoteTag("remote"), id(++LastId) {}
 
 /// * Public methods * ///
 
@@ -86,6 +88,10 @@ UserPtr Connection::getUser() const {
 
 int Connection::getStatus() const {
     return status;
+}
+
+int Connection::getId() const {
+    return id;
 }
 
 /// * Private methods * ///
