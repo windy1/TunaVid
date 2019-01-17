@@ -9,12 +9,10 @@
 #include <thread>
 #include <memory>
 #include <queue>
-#include <mutex>
 
 using std::thread;
 using std::shared_ptr;
 using std::queue;
-using std::mutex;
 
 class CallSession;
 
@@ -35,9 +33,6 @@ class CallSession {
     thread th_s;
     thread th_r;
 
-    mutex mutex_s;
-    mutex mutex_r;
-
     queue<string> frame_buffer_s;
     queue<string> frame_buffer_r;
 
@@ -45,7 +40,7 @@ class CallSession {
 
     void start();
 
-    void bufferFrames(ConnPtr out, queue<string> &buffer, mutex &mut);
+    void bufferFrames(ConnPtr out, queue<string> &buffer);
 
 public:
 

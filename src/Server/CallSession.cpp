@@ -37,13 +37,9 @@ void CallSession::readFrame(ConnPtr conn) {
     string data;
     conn->recv(data);
     if (conn == sender_conn) {
-        mutex_r.lock();
         frame_buffer_r.push(data);
-        mutex_r.unlock();
     } else if (conn == receiver_conn) {
-        mutex_s.lock();
         frame_buffer_s.push(data);
-        mutex_s.unlock();
     } else {
         fprintf(stderr, "tried to read frame from connection not on the call\n");
     }
@@ -65,13 +61,13 @@ void CallSession::start() {
     string message = Message::CallOpen + " " + std::to_string(id);
     sender_conn->send(message);
     receiver_conn->send(message);
-    th_s = thread(&CallSession::bufferFrames, this, sender_conn, std::ref(frame_buffer_s), std::ref(mutex_s));
-    th_r = thread(&CallSession::bufferFrames, this, receiver_conn, std::ref(frame_buffer_r), std::ref(mutex_r));
+    th_s = thread(&CallSession::bufferFrames, this, sender_conn, std::ref(frame_buffer_s));
+    th_r = thread(&CallSession::bufferFrames, this, receiver_conn, std::ref(frame_buffer_r));
     th_s.join();
     th_r.join();
 }
 
-void CallSession::bufferFrames(ConnPtr out, queue<string> &buffer, mutex &mut) {
+void CallSession::bufferFrames(ConnPtr out, queue<string> &buffer) {
     pthread_setname_np(("CallSession_bufferFrames-" + std::to_string(id)).c_str());
 
     std::ofstream file;
@@ -79,21 +75,19 @@ void CallSession::bufferFrames(ConnPtr out, queue<string> &buffer, mutex &mut) {
 
     while (is_opened) {
         if (buffer.empty()) continue;
-        mut.lock();
         string *data = &buffer.front();
 
-        if (++i >= 60) {
-            file = std::ofstream("server_" + out->getUser()->getUsername() + "_" + std::to_string(j) + ".jpeg");
-            file << *data;
-            file.close();
-            i = 0;
-            j++;
-            fprintf(stderr, "wrote image to disk\n");
-        }
+//        if (++i >= 60) {
+//            file = std::ofstream("server_" + out->getUser()->getUsername() + "_" + std::to_string(j) + ".jpeg");
+//            file << *data;
+//            file.close();
+//            i = 0;
+//            j++;
+//            fprintf(stderr, "wrote image to disk\n");
+//        }
 
         out->sendMulti({Message::Frame + " " + std::to_string(id), *data});
         buffer.pop();
-        mut.unlock();
     }
 }
 

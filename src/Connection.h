@@ -38,7 +38,7 @@ class Connection {
 
     void _send(const string &msg);
 
-    void recvFull(void *buffer, size_t len);
+    void recvFull(string &out, size_t len);
 
 public:
 
@@ -56,10 +56,10 @@ public:
     /**
      * (Blocking) Receives a message from the other party.
      *
-     * @param buffer buffer for incoming data
+     * @param out buffer for incoming data
      * @return size of received data
      */
-    ssize_t recv(string &buffer);
+    ssize_t recv(string &out);
 
     /**
      * Closes this connection.

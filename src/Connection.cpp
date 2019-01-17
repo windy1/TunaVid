@@ -35,16 +35,15 @@ void Connection::sendMulti(const vector<string> &data) {
     write_mutex.unlock();
 }
 
-ssize_t Connection::recv(string &buffer) {
+ssize_t Connection::recv(string &out) {
     read_mutex.lock();
+    out = "";
+    // get the size of the incoming message
     size_t len;
-    recvFull(&len, sizeof(size_t));
-    vector<char> buff;
-    buff.resize(len, 0x00);
-    recvFull(&buff[0], len);
-    buffer.assign(&buff[0], buff.size());
-    if (!buffer.empty()) {
-        printf("[%s] %s\n", remoteTag.c_str(), buffer.c_str());
+    ::recv(fd, &len, sizeof(size_t), 0);
+    recvFull(out, len);
+    if (!out.empty()) {
+        printf("[%s] %s\n", remoteTag.c_str(), out.c_str());
     }
     read_mutex.unlock();
     return len;
@@ -98,14 +97,17 @@ void Connection::_send(const string &msg) {
     printf("[local => %s] %s\n", remoteTag.c_str(), msg.c_str());
 }
 
-void Connection::recvFull(void *buffer, size_t len) {
+void Connection::recvFull(string &out, size_t len) {
     size_t bytes_left = len;
+    vector<char> buffer;
+    buffer.resize(len, 0x00);
     while (bytes_left > 0) {
-        ssize_t n = ::recv(fd, buffer, len, 0);
+        ssize_t n = ::recv(fd, &buffer[0], bytes_left, 0);
         if (n < 0) {
             fprintf(stderr, "error: Connection::recvFull\n");
             continue;
         }
+        out.append(&buffer[0], (size_t) n);
         bytes_left -= n;
     }
 }
