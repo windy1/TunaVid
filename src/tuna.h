@@ -30,12 +30,13 @@ struct Message {
     static const string Leave;
     static const string Frame;
     static const string Call;
+    static const string CallInvalid;
     static const string CallWaiting;
     static const string CallIncoming;
     static const string CallAccept;
+    static const string CallIgnore;
     static const string CallOpen;
-    static const string CallReject;
-    static const string CallInvalid;
+    static const string CallClose;
     static const string Goodbye;
 
 };

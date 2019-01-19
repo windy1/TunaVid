@@ -21,86 +21,73 @@ using std::vector;
 
 int Connection::LastId = -1;
 
-Connection::Connection(int fd) : fd(fd), status(Status::Ok), remoteTag("remote"), id(++LastId) {}
+Connection::Connection(int fd)
+    : socket_fd(fd),
+      status(Status::Ok),
+      remoteTag("remote"),
+      id(++LastId),
+      is_log_enabled(true) {}
 
 /// * Public methods * ///
 
 void Connection::send(const string &msg) {
-    write_mutex.lock();
+    std::lock_guard lock(write_mutex);
     _send(msg);
-    write_mutex.unlock();
 }
 
 void Connection::sendMulti(const vector<string> &data) {
-    write_mutex.lock();
+    std::lock_guard lock(write_mutex);
     for (auto &str : data) _send(str);
-    write_mutex.unlock();
 }
 
-ssize_t Connection::recv(string &out) {
-    read_mutex.lock();
+bool Connection::recv(string &out) {
+    std::lock_guard lock(read_mutex);
     out = "";
     // get the size of the incoming message
     size_t len;
-    ::recv(fd, &len, sizeof(size_t), 0);
+    if (::recv(socket_fd, &len, sizeof(size_t), 0) < 0) {
+        perror("the message length could not be received");
+        return false;
+    }
+    // receive the message
     recvFull(out, len);
-    if (!out.empty()) {
+    if (!out.empty() && is_log_enabled) {
         printf("[%s] %s\n", remoteTag.c_str(), out.c_str());
     }
-    read_mutex.unlock();
-    return len;
+    return true;
 }
 
 bool Connection::close() {
-    int res = ::close(fd);
-    if (res == 0) {
-        status = Status::Closed;
-        return true;
+    if (::close(socket_fd) < 0) {
+        perror("failed to close socket");
+        return false;
     }
-    return false;
+    status = Status::Closed;
+    return true;
 }
 
 bool Connection::shutdown() {
-    int res = ::shutdown(fd, SHUT_RDWR);
-    if (res == 0) {
-        status = Status::Shutdown;
-        return true;
+    if (::shutdown(socket_fd, SHUT_RDWR) < 0) {
+        perror("failed to shutdown socket");
+        return false;
     }
+    status = Status::Shutdown;
     return false;
-}
-
-void Connection::setThread(shared_ptr<thread> th) {
-    this->th = th;
-}
-
-shared_ptr<thread> Connection::getThread() const {
-    return th;
-}
-
-void Connection::setUser(UserPtr user) {
-    this->user = user;
-    this->remoteTag = user->getUsername();
-}
-
-UserPtr Connection::getUser() const {
-    return user;
-}
-
-int Connection::getStatus() const {
-    return status;
-}
-
-int Connection::getId() const {
-    return id;
 }
 
 /// * Private methods * ///
 
 void Connection::_send(const string &msg) {
+    if (msg.empty()) {
+        fprintf(stderr, "error: tried to send an empty message\n");
+        return;
+    }
     size_t len = msg.size();
-    ::send(fd, &len, sizeof(size_t), 0);
-    ::send(fd, msg.c_str(), msg.size(), 0);
-    printf("[local => %s] %s\n", remoteTag.c_str(), msg.c_str());
+    ::send(socket_fd, &len, sizeof(size_t), 0);
+    ::send(socket_fd, msg.c_str(), msg.size(), 0);
+    if (!msg.empty() && is_log_enabled) {
+        printf("[local => %s] %s\n", remoteTag.c_str(), msg.c_str());
+    }
 }
 
 void Connection::recvFull(string &out, size_t len) {
@@ -108,9 +95,9 @@ void Connection::recvFull(string &out, size_t len) {
     vector<char> buffer;
     buffer.resize(len, 0x00);
     while (bytes_left > 0) {
-        ssize_t n = ::recv(fd, &buffer[0], bytes_left, 0);
+        ssize_t n = ::recv(socket_fd, &buffer[0], bytes_left, 0);
         if (n < 0) {
-            fprintf(stderr, "error: Connection::recvFull\n");
+            perror("failed to receive message");
             continue;
         }
         out.append(&buffer[0], (size_t) n);
@@ -139,4 +126,41 @@ ConnPtr Connection::connect(string &host, int port) {
         return nullptr;
     }
     return std::make_shared<Connection>(fd);
+}
+
+/// * Setters * ///
+
+void Connection::setThread(shared_ptr<thread> th) {
+    this->th = th;
+}
+
+void Connection::setUser(UserPtr user) {
+    this->user = user;
+    this->remoteTag = user->getUsername();
+}
+
+void Connection::setLogEnabled(bool is_log_enabled) {
+    this->is_log_enabled = is_log_enabled;
+}
+
+/// * Getters * ///
+
+shared_ptr<thread> Connection::getThread() const {
+    return th;
+}
+
+UserPtr Connection::getUser() const {
+    return user;
+}
+
+bool Connection::isLogEnabled() const {
+    return is_log_enabled;
+}
+
+int Connection::getStatus() const {
+    return status;
+}
+
+int Connection::getId() const {
+    return id;
 }

@@ -31,8 +31,9 @@ class Connection {
     static int LastId;
 
     int id;
-    int fd;
+    int socket_fd;
     int status;
+    bool is_log_enabled;
     UserPtr user;
     string remoteTag;
     shared_ptr<thread> th;
@@ -54,6 +55,13 @@ public:
      */
     void send(const string &msg);
 
+    /**
+     * Sends the specified messages in the given vector to the other party. This
+     * method ensures that each method is sent in succession without any
+     * messages be sent in between in a thread-safe manner.
+     *
+     * @param data the data to send
+     */
     void sendMulti(const vector<string> &data);
 
     /**
@@ -62,7 +70,7 @@ public:
      * @param out buffer for incoming data
      * @return size of received data
      */
-    ssize_t recv(string &out);
+    bool recv(string &out);
 
     /**
      * Closes this connection.
@@ -86,18 +94,26 @@ public:
     void setThread(shared_ptr<thread> th);
 
     /**
-     * Returns the thread this connection is associated with.
-     *
-     * @return connection thread
-     */
-    shared_ptr<thread> getThread() const;
-
-    /**
      * Sets the User this Connection is associated with
      *
      * @param user to set
      */
     void setUser(UserPtr user);
+
+    /**
+     * Sets whether this connection should print incoming and outgoing messages
+     * to stdout.
+     *
+     * @param is_log_enabled true if should print to stdout
+     */
+    void setLogEnabled(bool is_log_enabled);
+
+    /**
+     * Returns the thread this connection is associated with.
+     *
+     * @return connection thread
+     */
+    shared_ptr<thread> getThread() const;
 
     /**
      * Returns the User this Connection is associated with.
@@ -107,12 +123,25 @@ public:
     UserPtr getUser() const;
 
     /**
+     * Returns whether this connection should print incoming and outgoing
+     * messages to stdout.
+     *
+     * @return true if should print to stdout
+     */
+    bool isLogEnabled() const;
+
+    /**
      * Returns the current status code for this connection.
      *
      * @return current status code
      */
     int getStatus() const;
 
+    /**
+     * Returns this connections unique identifier.
+     *
+     * @return connection id
+     */
     int getId() const;
 
     /**

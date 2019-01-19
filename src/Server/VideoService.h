@@ -12,9 +12,15 @@
 #include "ServerMonitor.h"
 #include <vector>
 #include <thread>
+#include <map>
+#include <functional>
+#include <sstream>
 
 using std::vector;
 using std::thread;
+using std::map;
+using std::function;
+using std::stringstream;
 
 /**
  * Main class for video-streaming service. This service acts as an intermediary station for data exchanged between
@@ -30,20 +36,26 @@ class VideoService {
     vector<ConnPtr> connections;
     vector<UserPtr> users;
     vector<CallSessionPtr> call_sessions;
+    map<string, function<void(ConnPtr, stringstream&)>> handlerMap;
 
     ServerMonitor monitor;
 
-    /// handles / processes new connection to the server
-    void handleConnection(ConnPtr conn);
-
-    void handleFrame(ConnPtr sender, int callId);
-
-    /// performs initialization logic during startup
     int init(int port, int backlog);
+
+    void initHandlers();
 
     void startListening();
 
+    void handleConnection(ConnPtr conn);
+
     void _sendAll(const string &message);
+
+    void onList(ConnPtr conn, stringstream &in);
+    void onCall(ConnPtr conn, stringstream &in);
+    void onCallAccept(ConnPtr conn, stringstream &in);
+    void onCallIgnore(ConnPtr conn, stringstream &in);
+    void onFrame(ConnPtr conn, stringstream &in);
+    void onDisconnect(ConnPtr conn, stringstream &in);
 
 public:
 
@@ -82,11 +94,13 @@ public:
      */
     void disconnect(ConnPtr conn, bool close = false);
 
+    /**
+     * Sends the specified message to every authenticated connection currently
+     * connected to the server. This method is completed asynchronously.
+     *
+     * @param message to send
+     */
     void sendAll(const string &message);
-
-    void startCall(ConnPtr sender, UserPtr receiver);
-
-    void acceptCall(int callId, ConnPtr conn);
 
     /**
      * Returns all currently opened connection.
@@ -95,6 +109,11 @@ public:
      */
     const vector<ConnPtr>& getConnections() const;
 
+    /**
+     * Returns all active CallSessions.
+     *
+     * @return active CallSessions
+     */
     const vector<CallSessionPtr>& getCallSessions() const;
 
     /**
@@ -105,8 +124,20 @@ public:
      */
     UserPtr getUser(const string& username) const;
 
+    /**
+     * Returns the active CallSession with the specified ID. If there is no
+     * call with the specified ID, null is returned.
+     *
+     * @param callId unique ID
+     * @return call with specified id
+     */
     CallSessionPtr getCall(int callId) const;
 
+    /**
+     * Returns true if the server is currently running.
+     *
+     * @return true if running
+     */
     bool isRunning() const;
 
     /**

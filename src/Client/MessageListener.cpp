@@ -45,7 +45,7 @@ void MessageListener::_start() {
     stringstream in;
 
     while (running) {
-        conn->recv(message);
+        if (!conn->recv(message)) continue;
         in = stringstream(message);
         in >> header;
         auto it = handlerMap.find(header);
@@ -97,7 +97,7 @@ void MessageListener::onLeave(const string &header, stringstream &in) {
 
 void MessageListener::onFrame(const string &header, stringstream &in) {
     string imageData;
-    client.getConnection()->recv(imageData);
+    if (!client.getConnection()->recv(imageData)) return;
 
 //    if (++i >= 60) {
 //        string fname = "client_" + client.getUser()->getUsername() + "_" + std::to_string(j) + ".jpeg";
